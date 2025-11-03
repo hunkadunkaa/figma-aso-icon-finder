@@ -1,5 +1,5 @@
 figma.showUI(__html__, {
-    width: 380, height: 650, title: "Play Store Icon Finder",
+    width: 480, height: 650, title: "ASO Icon Finder",
 });
 
 figma.ui.onmessage = async (msg) => {
@@ -8,7 +8,7 @@ figma.ui.onmessage = async (msg) => {
 
         if (items.length === 0) return;
 
-        figma.notify(`Đang chuẩn bị nhập ${items.length} icon...`);
+        figma.notify(`Đang chuẩn bị import ${items.length} icon(s)...`);
         const newNodes: SceneNode[] = [];
 
         for (const item of items) {
@@ -37,19 +37,25 @@ figma.ui.onmessage = async (msg) => {
             }
         }
 
-        let xOffset = 0;
+        const center = figma.viewport.center;
+        const iconSize = 512;
         const spacing = 60;
+        const totalWidth = newNodes.length * iconSize + (newNodes.length - 1) * spacing;
+        let startX = center.x - totalWidth / 2;
+
+        const y = center.y - iconSize / 2; // để cho nó nằm giữa viewport
+
         for (const node of newNodes) {
-            node.x = node.x + xOffset;
-            node.y = node.y;
-            xOffset += 512 + spacing;
+            node.x = startX;
+            node.y = y;
+            startX += iconSize + spacing;
         }
 
 
         if (newNodes.length > 0) {
             figma.currentPage.selection = newNodes; // Chọn tất cả các icon mới
             figma.viewport.scrollAndZoomIntoView(newNodes);
-            figma.notify(`✅ Đã nhập thành công ${newNodes.length} icon.`, { timeout: 3000 });
+            figma.notify(`✅ Đã import thành công ${newNodes.length} icon.`, { timeout: 3000 });
         } else {
             figma.notify(`❌ Không nhập được icon nào.`, { error: true });
         }
