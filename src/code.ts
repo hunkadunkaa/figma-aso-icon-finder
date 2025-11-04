@@ -8,7 +8,7 @@ figma.ui.onmessage = async (msg) => {
 
         if (items.length === 0) return;
 
-        figma.notify(`Đang chuẩn bị import ${items.length} icon(s)...`);
+        figma.notify(`Đang import ${items.length} icon...`);
         const newNodes: SceneNode[] = [];
 
         for (const item of items) {
@@ -43,7 +43,7 @@ figma.ui.onmessage = async (msg) => {
         const totalWidth = newNodes.length * iconSize + (newNodes.length - 1) * spacing;
         let startX = center.x - totalWidth / 2;
 
-        const y = center.y - iconSize / 2; // để cho nó nằm giữa viewport
+        const y = center.y - iconSize / 2;
 
         for (const node of newNodes) {
             node.x = startX;
@@ -53,11 +53,11 @@ figma.ui.onmessage = async (msg) => {
 
 
         if (newNodes.length > 0) {
-            figma.currentPage.selection = newNodes; // Chọn tất cả các icon mới
+            figma.currentPage.selection = newNodes; //
             figma.viewport.scrollAndZoomIntoView(newNodes);
             figma.notify(`✅ Đã import thành công ${newNodes.length} icon.`, { timeout: 3000 });
         } else {
-            figma.notify(`❌ Không nhập được icon nào.`, { error: true });
+            figma.notify(`❌ Không import được icon nào.`, { error: true });
         }
     }
 };
