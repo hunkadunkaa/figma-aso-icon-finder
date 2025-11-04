@@ -4,7 +4,9 @@ Plugin Figma sử dụng [google-play-scraper](https://github.com/facundoolano/g
 
 ![Hình mẫu plugin](./img/example.png)
 
-Ngoài ra project này sử dụng server Vercel để fetch thông tin về plugin.
+Ngoài ra project này sử dụng server **Vercel** để fetch thông tin về plugin.
+
+
 
 ---
 
@@ -59,4 +61,5 @@ File build sẽ nằm trong thư mục `dist/`.
 
 ---
 *Làm product thì push thẳng lên main*
+
 *Ai sợ thì đi về...*
