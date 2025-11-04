@@ -1,6 +1,10 @@
-# GPlay Icon Finder
+# Figma ASO Icon Finder
 
-Plugin Figma sử dụng [google-play-scraper](https://github.com/facundoolano/google-play-scraper) giúp tìm kiếm và nhập icon ứng dụng từ Google Play Store vào Figma.
+Plugin Figma sử dụng [google-play-scraper](https://github.com/facundoolano/google-play-scraper) và [app-store-scraper](https://github.com/facundoolano/app-store-scraper) giúp tìm kiếm và import icon ứng dụng từ Google Play Store và Apple App Store vào Figma.
+
+![Hình mẫu plugin](./img/example.png)
+
+Ngoài ra project này sử dụng server Vercel để fetch thông tin về plugin.
 
 ---
 
@@ -9,7 +13,7 @@ Plugin Figma sử dụng [google-play-scraper](https://github.com/facundoolano/g
 ### 1. Yêu cầu
 
 - Node.js >= 16
-- npm hoặc yarn
+- npm
 
 ### 2. Cài đặt các thư viện
 
@@ -17,8 +21,6 @@ Mở terminal tại thư mục dự án và chạy:
 
 ```bash
 npm install
-# hoặc
-yarn install
 ```
 
 ### 3. Thiết lập biến môi trường
@@ -36,8 +38,6 @@ Chạy lệnh sau để build mã nguồn:
 
 ```bash
 npm run build
-# hoặc
-yarn build
 ```
 
 File build sẽ nằm trong thư mục `dist/`.
@@ -51,8 +51,12 @@ File build sẽ nằm trong thư mục `dist/`.
 
 - Mở plugin trong Figma.
 - Nhập tên ứng dụng cần tìm kiếm icon.
-- Chọn icon và nhấn "Xuất icon vào Figma".
+- Chọn icon và nhấn "Import icon vào Figma".
 
 ---
+## TODO
+- Một vài logic UI vẫn hoạt động chưa đúng - will fix later
 
-Nếu gặp lỗi hoặc cần hỗ trợ, vui lòng tạo issue trên GitHub.
+---
+*Làm product thì push thẳng lên main*
+*Ai sợ thì đi về...*
