@@ -62,8 +62,8 @@ if (root) {
     <label for="appStoreSelect" class="font-medium text-gray-600 mr-2"> Store: </label>
     <select id="appStoreSelect" class="border border-gray-200 rounded-md px-2 py-1 text-sm">
     <option value="all" selected> Tất cả </option>
-    <option value="google-play"> Google Play Store </option>
-    <option value="apple-app-store"> Apple App Store </option>
+    <option value="google"> Google Play Store </option>
+    <option value="appstore"> Apple App Store </option>
     </select>
     </div>
 
@@ -110,8 +110,6 @@ if (root) {
 const API_URL = process.env.VERCEL_API_BASE_URL!;
 const API_KEY = process.env.FIGMA_PLUGIN_API_KEY!;
 
-setTimeout(() => { }, 1000);
-
 // DOM Elements
 const searchInput = document.getElementById('searchInput') as HTMLInputElement;
 const searchButton = document.getElementById('searchButton') as HTMLButtonElement;
@@ -123,7 +121,7 @@ const itemsPerPageSelect = document.getElementById('itemsPerPageSelect') as HTML
 const paginationControls = document.getElementById('paginationControls') as HTMLSelectElement;
 const resultsDiv = document.getElementById('results') as HTMLElement;
 const actionBar = document.getElementById('actionBar') as HTMLDivElement | null;
-const alldiv = document.querySelector('all-div') as HTMLDivElement | null;
+
 
 // State
 let allResults: any[] = [];
@@ -134,11 +132,10 @@ let totalPages = 0;
 const fetchResults = async () => {
     const term = searchInput.value.trim();
     const country = countrySelect?.value;
-    const limit = parseInt(itemsPerPageSelect.value, 5);
+    const limit = Number(itemsPerPageSelect.value) || 5;
     const store = appStoreSelect?.value || 'all';
 
     if (!term) {
-        alldiv!.hidden = true;
         updateImportState();
         importButton!.hidden = true;
         renderPagination();
@@ -148,14 +145,29 @@ const fetchResults = async () => {
     }
 
     resultsDiv.innerHTML = `<p class="text-center text-gray-400 mt-6">🔍 Đang tìm kiếm...</p>
-    <p class="text-center text-gray-400 mt-2 text-sm" > Xin chờ, có thể server đang cần thời gian để reboot lại...</p>`;
-    paginationControls.innerHTML = '';
+    <p class="text-center text-gray-400 mt-2 text-sm" > Xin chờ, có thể server đang cần thời gian để reboot lại...</p>
+`;
+
+    let mergeNoticeTimeout;
+
+    if (store === "all") {
+        mergeNoticeTimeout = setTimeout(() => {
+            resultsDiv.innerHTML = '';
+            resultsDiv.insertAdjacentHTML(
+                "beforeend",
+                `<p class="text-center text-gray-400 mt-3 text-base">
+        ⏳ Đang gộp kết quả từ 2 store...
+      </p>`
+            );
+        }, 3500);
+    }
+
     selectedAppIds.clear();
     updateImportState();
 
     try {
         const res = await fetch(
-            `${API_URL}?term=${encodeURIComponent(term)}&country=${country}&limit=${limit}&store=${store}`,
+            `${API_URL}?term=${encodeURIComponent(term)}&country=${country}&store=${store}`,
             {
                 headers: { 'x-api-key': API_KEY },
             }
@@ -169,23 +181,14 @@ const fetchResults = async () => {
             return;
         }
 
-        let data = [];
+        allResults = json.data || [];
 
-        if (store === "all") {
-            const google = json.google || [];
-            const appstore = json.appstore || [];
-            data = [...google, ...appstore];
-        } else {
-            data = json.data || [];
-        }
-
-        allResults = data;
         totalPages = Math.ceil(allResults.length / limit);
         currentPage = 1;
         renderPage(1);
 
         if (allResults.length === 0) {
-            resultsDiv.innerHTML = `<p class="text-center text-gray-500 mt-6">Không tìm thấy kết quả nào :( </p>`;
+            resultsDiv.innerHTML = `<p class="text-center text-gray-500 mt-6">Không tìm thấy kết quả nào 🤨 </p>`;
             return;
         }
 
@@ -204,8 +207,10 @@ const fetchResults = async () => {
         }
 
     } catch (err) {
-        resultsDiv.innerHTML = `<p class="text-center text-red-500 mt-6">Lỗi khi gọi API: ${(err as Error).message}</p>`;
+        resultsDiv.innerHTML = `<p class="text-center text-red-500 mt-6">Lỗi khi gọi API: ${(err as Error).message} 😓</p>`;
     }
+
+    clearTimeout(mergeNoticeTimeout);
 };
 
 const renderPage = (page: number) => {
@@ -214,10 +219,11 @@ const renderPage = (page: number) => {
     const end = start + limit;
     const pageItems = allResults.slice(start, end);
 
+    importButton!.hidden = false;
     resultsDiv.innerHTML = '';
 
     if (pageItems.length === 0) {
-        resultsDiv.innerHTML = `<p class="text-center text-gray-500 mt-6">Không tìm thấy kết quả nào :( </p>`;
+        resultsDiv.innerHTML = `<p class="text-center text-gray-500 mt-6">Không tìm thấy kết quả nào 🤨 </p>`;
         return;
     }
 
@@ -228,9 +234,7 @@ const renderPage = (page: number) => {
         const hasGoogle = app.stores && app.stores.googlePlay;
         const hasAppStore = app.stores && app.stores.appStore;
 
-        let storeIconsHTML = '';
-        if (hasGoogle) {
-            storeIconsHTML += `
+        const GOOGLE_SVG = `
       <!-- Google Play Icon -->
       <svg width="16px" height="16px" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
         <mask id="mask0" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="7" y="3" width="24" height="26">
@@ -262,23 +266,37 @@ const renderPage = (page: number) => {
         </defs>
       </svg>
       `;
-        }
 
-        if (hasAppStore) {
-            storeIconsHTML += `
+
+        const APPSTORE_SVG = `
       <!-- Apple App Store Icon -->
-      <svg width="16px" height="16px" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="as-grad">
-            <stop stop-color="#17C9FB" offset="0%"></stop>
-            <stop stop-color="#1A74E8" offset="100%"></stop>
-          </linearGradient>
-        </defs>
-        <path d="M56.0638473,0 L199.936153,0 C230.899361,0 256,25.1006394 256,56.0638473 L256,199.936153 C256,230.899361 230.899361,256 199.936153,256 L56.0638473,256 C25.1006394,256 0,230.899361 0,199.936153 L0,56.0638473 C0,25.1006394 25.1006394,0 56.0638473,0 Z" fill="url(#as-grad)"></path>
-        <path d="M82.041678,185.810289 ... (rút gọn) ..." fill="#FFFFFF"></path>
-      </svg>
+      <svg width="16px" height="16px" viewBox="0 0 256 256" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid">
+    <defs>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-1">
+            <stop stop-color="#17C9FB" offset="0%">
+
+</stop>
+            <stop stop-color="#1A74E8" offset="100%">
+
+</stop>
+        </linearGradient>
+    </defs>
+		<g>
+				<path d="M56.0638473,0 L199.936153,0 C230.899361,-6.57084692e-15 256,25.1006394 256,56.0638473 L256,199.936153 C256,230.899361 230.899361,256 199.936153,256 L56.0638473,256 C25.1006394,256 0,230.899361 0,199.936153 L0,56.0638473 C0,25.1006394 25.1006394,6.57084692e-15 56.0638473,0 Z" fill="url(#linearGradient-1)">
+
+</path>
+				<path d="M82.041678,185.810289 L82.0657467,185.817889 L73.3130924,200.977891 C70.1182861,206.51167 63.0418283,208.407779 57.5080489,205.212719 C51.9745229,202.018166 50.0784142,194.941709 53.2732205,189.407929 L59.7211046,178.240042 L60.3397975,177.16835 C61.4449319,175.579561 64.1720448,172.838767 69.6270308,173.353838 C69.6270308,173.353838 82.4637674,174.747037 83.3925667,181.418887 C83.3928201,181.418887 83.5194976,183.614461 82.041678,185.810289 L82.041678,185.810289 Z M206.18511,147.089287 L178.890925,147.089287 C177.032313,146.96489 176.22031,146.3011 175.901843,145.915241 L175.881574,145.880024 L146.663918,95.2738878 L146.626168,95.2992233 L144.873712,92.786702 C142.002187,88.3953002 137.442051,99.6272864 137.442051,99.6272864 C131.997452,112.142769 138.21453,126.372451 140.382488,130.673152 L180.963875,200.962183 C184.158428,206.495962 191.234886,208.392071 196.768665,205.197011 C202.302191,202.002458 204.1983,194.926001 201.003494,189.392221 L190.855613,171.815973 C190.659263,171.390337 190.316981,170.233771 192.398038,170.229211 L206.18511,170.229211 C212.574975,170.229211 217.755071,165.049115 217.755071,158.659249 C217.755071,152.269383 212.574975,147.089287 206.18511,147.089287 Z M153.171088,162.818324 C153.171088,162.818324 154.627879,170.228957 148.99073,170.228957 L143.353582,170.228957 L143.353582,170.229211 L48.0918579,170.229211 C41.701992,170.229211 36.5218962,165.049115 36.5218962,158.659249 C36.5218962,152.269383 41.701992,147.089287 48.0918579,147.089287 L74.0318604,147.089287 C78.2198182,146.846573 79.2127163,144.42906 79.2127163,144.42906 L79.2355183,144.440715 L113.095904,85.7925846 L113.08577,85.7905577 C113.703196,84.6575543 113.189139,83.5871295 113.099704,83.417635 L101.917376,64.0494072 C98.7223163,58.5156278 100.618425,51.4394233 106.152204,48.244617 C111.685984,45.0495574 118.761935,46.9456661 121.956994,52.4794455 L127.143171,61.4623995 L132.320226,52.4954068 C135.515033,46.9616274 142.591237,45.0655188 148.125016,48.2605784 C153.658796,51.455638 155.554904,58.5318425 152.359845,64.0653685 L105.242153,145.675313 C105.036176,146.172142 104.97309,146.951969 106.505888,147.089287 L134.670094,147.089287 L134.676174,147.363671 C134.676174,147.363671 150.954231,147.617026 153.171088,162.818324 Z" fill="#FFFFFF" fill-rule="nonzero">
+
+</path>
+		</g>
+</svg>
       `;
-        }
+
+        const storeIconsHTML = `<div class="flex space-x-2 mt-1">
+        ${hasGoogle ? GOOGLE_SVG : ""}
+        ${hasAppStore ? APPSTORE_SVG : ""}
+        </div>
+        `;
 
         const wrapper = document.createElement("div");
         wrapper.className = `app-card flex items-center p-2 border border-gray-300 rounded-lg bg-white cursor-pointer ${isSelected ? 'selected border-color: #3B82F6 background-color: #DBEAFE' : ''}`;
@@ -289,10 +307,7 @@ const renderPage = (page: number) => {
       <div class="flex-grow pointer-events-none">
         <p class="font-semibold text-sm truncate">${app.title}</p>
         <p class="text-xs text-gray-500 truncate">${app.developer}</p>
-
-        <div class="flex space-x-2 mt-1">
         ${storeIconsHTML}
-        </div>
     `;
         resultsDiv.appendChild(wrapper);
     });
