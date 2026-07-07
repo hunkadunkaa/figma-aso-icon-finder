@@ -88,20 +88,20 @@ if (root) {
     </div>
 
     <!-- Results -->
-    <div class="results-container space-y-2" id="results">
+    <div class="results-container space-y-2 pb-4" id="results">
     <p class="text-center text-gray-500 mt-8" > Nhập từ khóa để bắt đầu tìm kiếm...</p>
     <p class="text-center text-gray-500 mt-2" > Ví dụ: "Facebook", "Instagram", "TikTok"...</p>
     </div>
 
     <!-- Pagination -->
-      <div id="paginationControls" class=" hidden flex items-center justify-center pt-3 text-sm">
+      <div id="paginationControls" class="hidden flex items-center justify-center py-2 pb-20 text-sm">
       <button class="pagination-btn px-3 py-1 border rounded-l-md bg-white hover:bg-gray-100 text-gray-400 cursor-not-allowed">Trước</button>
       <span class="px-4 py-1 border-t border-b bg-white font-bold">Trang 1</span>
       <button class="pagination-btn px-3 py-1 border rounded-r-md bg-white hover:bg-gray-100">Sau</button>
       </div>
 
-    <!-- Footer with Import Button -->
-    <div id="footerBar" class="hidden pt-4 pb-4 border-t-0.7" >
+    <!-- Footer with Import Button (fixed at bottom) -->
+    <div id="footerBar" class="hidden" style="position: fixed; bottom: 0; left: 0; right: 0; background: #F8F9FA; border-top: 1px solid #e0e0e0; padding: 8px 16px; z-index: 100;" >
     <button id="importButton" disabled class="action-button w-full font-bold py-2 px-4 rounded-md text-white bg-gray-400 cursor-not-allowed shadow-md">Import icon vào Figma</button>
     </div>
     `;
@@ -136,19 +136,17 @@ const fetchResults = async () => {
     const store = appStoreSelect?.value || 'all';
 
     if (!term) {
-        updateImportState();
-        importButton!.hidden = true;
-        renderPagination();
-        paginationControls.innerHTML = '';
+        setResultsVisibility(false);
         resultsDiv.innerHTML = `<p class="text-center text-gray-500 mt-6">Vui lòng nhập từ khóa tìm kiếm.</p>`;
         return;
     }
 
+    setResultsVisibility(false);
     resultsDiv.innerHTML = `<p class="text-center text-gray-400 mt-6">🔍 Đang tìm kiếm...</p>
     <p class="text-center text-gray-400 mt-2 text-sm" > Xin chờ, có thể server đang cần thời gian để reboot lại...</p>
 `;
 
-    let mergeNoticeTimeout;
+    let mergeNoticeTimeout: ReturnType<typeof setTimeout> | undefined;
 
     if (store === "all") {
         mergeNoticeTimeout = setTimeout(() => {
@@ -183,34 +181,51 @@ const fetchResults = async () => {
 
         allResults = json.data || [];
 
+        const hasResults = allResults.length > 0;
+        setResultsVisibility(hasResults);
+
         totalPages = Math.ceil(allResults.length / limit);
         currentPage = 1;
         renderPage(1);
 
-        if (allResults.length === 0) {
+        if (!hasResults) {
             resultsDiv.innerHTML = `<p class="text-center text-gray-500 mt-6">Không tìm thấy kết quả nào 🤨 </p>`;
             return;
         }
 
-        const renderPagination = document.getElementById('paginationControls');
-        if (renderPagination) {
-            renderPagination.classList.remove('hidden');
-        }
-
-        const footerBar = document.getElementById('footerBar');
-        if (footerBar) {
-            footerBar.classList.remove('hidden');
-        }
-
-        if (actionBar) {
-            actionBar.classList.remove('hidden');
-        }
-
     } catch (err) {
+        setResultsVisibility(false);
         resultsDiv.innerHTML = `<p class="text-center text-red-500 mt-6">Lỗi khi gọi API: ${(err as Error).message} 😓</p>`;
     }
 
     clearTimeout(mergeNoticeTimeout);
+};
+
+/** Hiển thị hoặc ẩn actionBar, paginationControls, footerBar cùng lúc */
+const setResultsVisibility = (hasResults: boolean) => {
+    const footerBar = document.getElementById('footerBar');
+    if (footerBar) {
+        // Must remove 'hidden' class first — Tailwind uses display:none !important
+        // which overrides inline style.display
+        footerBar.classList.remove('hidden');
+        footerBar.style.display = hasResults ? 'block' : 'none';
+    }
+    if (actionBar) {
+        actionBar.classList.remove('hidden');
+        actionBar.style.display = hasResults ? 'flex' : 'none';
+    }
+    if (paginationControls) {
+        paginationControls.classList.remove('hidden');
+        paginationControls.style.display = hasResults ? 'flex' : 'none';
+    }
+    if (!hasResults) {
+        selectedAppIds.clear();
+        updateImportState();
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        }
+    }
 };
 
 const renderPage = (page: number) => {
@@ -219,7 +234,6 @@ const renderPage = (page: number) => {
     const end = start + limit;
     const pageItems = allResults.slice(start, end);
 
-    importButton!.hidden = false;
     resultsDiv.innerHTML = '';
 
     if (pageItems.length === 0) {
@@ -299,29 +313,50 @@ const renderPage = (page: number) => {
         `;
 
         const wrapper = document.createElement("div");
-        wrapper.className = `app-card flex items-center p-2 border border-gray-300 rounded-lg bg-white cursor-pointer ${isSelected ? 'selected border-color: #3B82F6 background-color: #DBEAFE' : ''}`;
+        wrapper.className = `app-card flex items-center p-2 border border-gray-300 rounded-lg bg-white cursor-pointer ${isSelected ? 'selected' : ''}`;
+        if (isSelected) {
+            wrapper.style.borderColor = '#3B82F6';
+            wrapper.style.backgroundColor = '#DBEAFE';
+        }
 
         wrapper.innerHTML = `
       <input type="checkbox" class="app-checkbox mr-3" data-id="${id}" data-url="${app.icon}" data-name="${app.title}" data-developer="${app.developer}" ${isSelected ? 'checked' : ''}>
-      <img src="${app.icon}" class="w-12 h-12 rounded-lg mr-3 pointer-events-none" />
-      <div class="flex-grow pointer-events-none">
+      <img src="${app.icon}" class="w-12 h-12 rounded-lg mr-3" style="pointer-events:none;" />
+      <div class="flex-grow" style="pointer-events:none;">
         <p class="font-semibold text-sm truncate">${app.title}</p>
         <p class="text-xs text-gray-500 truncate">${app.developer}</p>
         ${storeIconsHTML}
     `;
+
+        // Make entire card clickable — toggle the checkbox
+        wrapper.addEventListener('click', (e) => {
+            const cb = wrapper.querySelector<HTMLInputElement>('.app-checkbox')!;
+            // If the click was directly on the checkbox, let it handle itself
+            if (e.target === cb) return;
+            cb.checked = !cb.checked;
+            const appId = cb.dataset.id!;
+            if (cb.checked) {
+                selectedAppIds.add(appId);
+                wrapper.style.borderColor = '#3B82F6';
+                wrapper.style.backgroundColor = '#DBEAFE';
+            } else {
+                selectedAppIds.delete(appId);
+                wrapper.style.borderColor = '';
+                wrapper.style.backgroundColor = '';
+            }
+            updateImportState();
+            updateSelectAllState();
+        });
+
         resultsDiv.appendChild(wrapper);
     });
-
-    const footerBar = document.getElementById('footerBar');
-    if (footerBar) {
-        footerBar.classList.remove('hidden');
-    }
 
     renderPagination();
     bindCheckboxEvents();
 
     if (selectAllCheckbox) {
         selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
     }
 
     updateImportState();
@@ -339,7 +374,7 @@ const renderPagination = () => {
     totalPages = Math.ceil(allResults.length / limit);
 
     const wrapper = document.createElement('div');
-    wrapper.className = 'flex items-center justify-center pt-3 text-sm';
+    wrapper.className = 'flex items-center justify-center text-sm';
 
     const prevBtn = document.createElement('button');
     prevBtn.className = `pagination-btn px-3 py-1 border rounded-l-md bg-white hover:bg-gray-100 ${currentPage === 1 ? 'text-gray-400 cursor-not-allowed' : ''
@@ -354,7 +389,7 @@ const renderPagination = () => {
     };
 
     const currentPageLabel = document.createElement('span');
-    currentPageLabel.className = 'px-4 py-1 border-t border-b bg-white font-bold';
+    currentPageLabel.className = 'px-4 py-1 bg-white font-bold';
     currentPageLabel.textContent = `Trang ${currentPage}`;
 
     const nextBtn = document.createElement('button');
@@ -381,14 +416,39 @@ const bindCheckboxEvents = () => {
     checkboxes.forEach((cb) => {
         cb.onchange = () => {
             const appId = cb.dataset.id!;
+            const card = cb.closest<HTMLDivElement>('.app-card');
             if (cb.checked) {
                 selectedAppIds.add(appId);
+                if (card) { card.style.borderColor = '#3B82F6'; card.style.backgroundColor = '#DBEAFE'; }
             } else {
                 selectedAppIds.delete(appId);
+                if (card) { card.style.borderColor = ''; card.style.backgroundColor = ''; }
             }
             updateImportState();
+            updateSelectAllState();
         };
     });
+};
+
+const updateSelectAllState = () => {
+    if (!selectAllCheckbox) return;
+    const checkboxes = document.querySelectorAll<HTMLInputElement>('.app-checkbox');
+    if (checkboxes.length === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+        return;
+    }
+    const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+    if (checkedCount === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    } else if (checkedCount === checkboxes.length) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+    } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+    }
 };
 
 if (selectAllCheckbox) {
@@ -397,10 +457,13 @@ if (selectAllCheckbox) {
         checkboxes.forEach(cb => {
             cb.checked = selectAllCheckbox.checked;
             const appId = cb.dataset.id!;
+            const card = cb.closest<HTMLDivElement>('.app-card');
             if (selectAllCheckbox.checked) {
                 selectedAppIds.add(appId);
+                if (card) { card.style.borderColor = '#3B82F6'; card.style.backgroundColor = '#DBEAFE'; }
             } else {
                 selectedAppIds.delete(appId);
+                if (card) { card.style.borderColor = ''; card.style.backgroundColor = ''; }
             }
         });
         updateImportState();
